@@ -197,6 +197,67 @@
   }
   .hud b{color:var(--red);}
 
+  /* ---------- Power-up bar (shared across games) ---------- */
+  .powerup-bar{
+    display:flex; flex-wrap:wrap; gap:8px;
+    margin:12px 0 4px;
+    padding:10px;
+    background:rgba(255,201,60,0.18);
+    border:2px dashed var(--brown);
+    border-radius:10px;
+  }
+  .powerup-empty{
+    font-size:13px; opacity:0.7; font-style:italic;
+  }
+  .powerup-btn{
+    font-family:inherit;
+    font-weight:800;
+    font-size:12px;
+    background:var(--panel);
+    border:2px solid var(--brown);
+    border-radius:8px;
+    padding:6px 10px;
+    cursor:pointer;
+    box-shadow:2px 2px 0 var(--brown);
+    transition:transform 0.1s ease;
+  }
+  .powerup-btn:hover{transform:translate(1px,1px); box-shadow:1px 1px 0 var(--brown);}
+  .powerup-btn .count{color:var(--red);}
+  .charges-info{
+    font-size:12px; font-weight:800; color:var(--teal-dark);
+    min-height:16px; margin-top:-8px; margin-bottom:8px;
+  }
+
+  /* ---------- Kios (ticket exchange) ---------- */
+  .kios-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:14px;
+  }
+  @media (max-width:700px){ .kios-grid{grid-template-columns:1fr;} }
+  .kios-item{
+    background:var(--cream);
+    border:3px solid var(--brown);
+    border-radius:12px;
+    padding:14px;
+    text-align:center;
+  }
+  .kios-item .icon{font-size:32px; display:block; margin-bottom:6px;}
+  .kios-item h4{margin:0 0 4px; font-size:15px; color:var(--teal-dark);}
+  .kios-item p{margin:0 0 8px; font-size:12px; opacity:0.75; line-height:1.4; min-height:34px;}
+  .kios-item .owned{font-size:11px; font-weight:800; color:var(--red); margin-bottom:8px; display:block;}
+  .kios-buy{
+    font-family:inherit; font-weight:800; font-size:13px;
+    background:var(--teal); color:var(--cream);
+    border:2px solid var(--brown); border-radius:8px;
+    padding:6px 12px; cursor:pointer; width:100%;
+    box-shadow:2px 2px 0 var(--brown);
+  }
+  .kios-buy:disabled{
+    background:#ccc; color:#888; cursor:not-allowed; box-shadow:none;
+  }
+  .kios-buy:not(:disabled):hover{transform:translate(1px,1px); box-shadow:1px 1px 0 var(--brown);}
+
   /* ---------- Nyamuk (whack) game ---------- */
   .nyamuk-grid{
     display:grid;
@@ -330,6 +391,12 @@
         <p>Buka dua kartu, cari pasangannya. Makin sedikit coba, makin jago!</p>
         <span class="best">Rekor: <span id="bestKartu">–</span> giliran</span>
       </div>
+      <div class="stall" data-game="kios">
+        <span class="icon">🎪</span>
+        <h3>Kios Tukar Tiket</h3>
+        <p>Tukar tiket hasil mainmu jadi power-up buat bantu di stan lain!</p>
+        <span class="best">6 power-up tersedia</span>
+      </div>
     </div>
 
     <!-- NYAMUK GAME -->
@@ -342,6 +409,7 @@
         <div>⏱️ Waktu: <b id="nyamukTime">15</b>s</div>
         <div>✅ Kena: <b id="nyamukScore">0</b></div>
       </div>
+      <div class="powerup-bar" id="nyamukPowerupBar"></div>
       <br>
       <div class="nyamuk-grid" id="nyamukGrid"></div>
       <div class="result-banner" id="nyamukResult"></div>
@@ -355,8 +423,10 @@
         <h2>🚦 Lampu Hijau</h2>
         <button class="back-btn" onclick="goHome()">← Stan Lain</button>
       </div>
+      <div class="powerup-bar" id="lampuPowerupBar"></div>
       <div class="lampu-area">
         <p id="lampuInstruksi">Klik lingkaran untuk mulai. Tunggu sampai hijau, lalu klik secepatnya!</p>
+        <div class="charges-info" id="lampuCharges"></div>
         <div class="light" id="lampuLight" onclick="lampuClick()">MULAI</div>
         <div class="result-banner" id="lampuResult"></div>
       </div>
@@ -372,11 +442,22 @@
         <div>🔄 Giliran: <b id="kartuTurns">0</b></div>
         <div>🎯 Cocok: <b id="kartuMatches">0</b>/8</div>
       </div>
+      <div class="powerup-bar" id="kartuPowerupBar"></div>
       <br>
       <div class="kartu-grid" id="kartuGrid"></div>
       <div class="result-banner" id="kartuResult"></div>
       <br>
       <button class="action-btn" onclick="setupKartu()">Acak Ulang</button>
+    </div>
+
+    <!-- KIOS: TUKAR TIKET -->
+    <div class="stage" id="stage-kios">
+      <div class="stage-head">
+        <h2>🎪 Kios Tukar Tiket</h2>
+        <button class="back-btn" onclick="goHome()">← Stan Lain</button>
+      </div>
+      <p>Tiket kamu sekarang: <b id="kiosTickets">0</b> 🎟️ — tukar jadi power-up buat dipakai di stan!</p>
+      <div class="kios-grid" id="kiosGrid"></div>
     </div>
 
   </div>
@@ -389,6 +470,8 @@ let totalTickets = 0;
 function addTickets(n){
   totalTickets += n;
   document.getElementById('totalTickets').textContent = totalTickets;
+  const kt = document.getElementById('kiosTickets');
+  if(kt) kt.textContent = totalTickets;
 }
 
 function goHome(){
@@ -402,8 +485,111 @@ document.querySelectorAll('.stall').forEach(card=>{
     document.getElementById('stallPicker').style.display = 'none';
     document.getElementById('stage-'+game).classList.add('active');
     if(game === 'kartu' && !kartuInitialized){ setupKartu(); }
+    if(game === 'kios'){ renderKios(); }
+    renderAllPowerupBars();
   });
 });
+
+/* ---------------- POWER-UP SHOP & INVENTORY ---------------- */
+const shopItems = [
+  {key:'waktu',   icon:'⏱️', name:'Tambah Waktu',      desc:'+5 detik main di Tepuk Nyamuk',            cost:5,  game:'nyamuk'},
+  {key:'beku',    icon:'🧊', name:'Nyamuk Serentak',   desc:'Semua lubang aktif bareng 2 detik',        cost:8,  game:'nyamuk'},
+  {key:'intip',   icon:'🔍', name:'Intip Kartu',       desc:'Lihat semua kartu sekilas, gratis giliran', cost:6,  game:'kartu'},
+  {key:'bantuan', icon:'🎯', name:'Bantuan Pasangan',  desc:'Otomatis cocokkan satu pasang kartu',       cost:7,  game:'kartu'},
+  {key:'anti',    icon:'🛡️', name:'Anti Kepancing',    desc:'Klik kepancing dimaafkan sekali',           cost:4,  game:'lampu'},
+  {key:'ganda',   icon:'⚡', name:'Reaksi Ganda',       desc:'Tiket reaksi berikutnya dobel',             cost:6,  game:'lampu'},
+];
+const inventory = {waktu:0, beku:0, intip:0, bantuan:0, anti:0, ganda:0};
+let antiCharges = 0, gandaCharges = 0;
+
+function renderKios(){
+  const grid = document.getElementById('kiosGrid');
+  grid.innerHTML = shopItems.map(item=>`
+    <div class="kios-item">
+      <span class="icon">${item.icon}</span>
+      <h4>${item.name}</h4>
+      <p>${item.desc}</p>
+      <span class="owned">Kamu punya: ${inventory[item.key]}</span>
+      <button class="kios-buy" ${totalTickets < item.cost ? 'disabled' : ''} onclick="buyItem('${item.key}', ${item.cost})">
+        Tukar (${item.cost} 🎟️)
+      </button>
+    </div>
+  `).join('');
+}
+
+function buyItem(key, cost){
+  if(totalTickets < cost) return;
+  totalTickets -= cost;
+  document.getElementById('totalTickets').textContent = totalTickets;
+  document.getElementById('kiosTickets').textContent = totalTickets;
+  inventory[key]++;
+  renderKios();
+  renderAllPowerupBars();
+}
+
+function renderPowerupBar(gameKey, containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const owned = shopItems.filter(i=>i.game===gameKey && inventory[i.key]>0);
+  if(owned.length === 0){
+    el.innerHTML = '<span class="powerup-empty">Belum ada power-up buat stan ini. Mampir ke Kios Tukar Tiket!</span>';
+    return;
+  }
+  el.innerHTML = owned.map(i=>`
+    <button class="powerup-btn" onclick="usePowerup('${i.key}')">${i.icon} ${i.name} <span class="count">x${inventory[i.key]}</span></button>
+  `).join('');
+}
+
+function renderAllPowerupBars(){
+  renderPowerupBar('nyamuk', 'nyamukPowerupBar');
+  renderPowerupBar('lampu', 'lampuPowerupBar');
+  renderPowerupBar('kartu', 'kartuPowerupBar');
+}
+
+function flashMsg(bannerId, text){
+  const b = document.getElementById(bannerId);
+  if(!b) return;
+  b.classList.add('show');
+  b.textContent = text;
+}
+
+function usePowerup(key){
+  if(inventory[key] <= 0) return;
+  let used = true;
+  switch(key){
+    case 'waktu':
+      if(!nyamukPlaying){ flashMsg('nyamukResult', 'Mulai main dulu, baru bisa pakai power-up ini!'); used = false; }
+      else {
+        nyamukTimeLeft += 5;
+        document.getElementById('nyamukTime').textContent = nyamukTimeLeft;
+      }
+      break;
+    case 'beku':
+      if(!nyamukPlaying){ flashMsg('nyamukResult', 'Mulai main dulu, baru bisa pakai power-up ini!'); used = false; }
+      else { activateBeku(); }
+      break;
+    case 'intip':
+      if(!kartuInitialized || kartuLock){ used = false; }
+      else { activateIntip(); }
+      break;
+    case 'bantuan':
+      if(!kartuInitialized){ used = false; }
+      else { used = activateBantuan(); }
+      break;
+    case 'anti':
+      antiCharges++;
+      updateLampuCharges();
+      break;
+    case 'ganda':
+      gandaCharges++;
+      updateLampuCharges();
+      break;
+  }
+  if(used){
+    inventory[key]--;
+    renderAllPowerupBars();
+  }
+}
 
 /* ---------------- TEPUK NYAMUK ---------------- */
 let nyamukInterval, nyamukTimer, nyamukScore = 0, nyamukPlaying = false;
@@ -430,21 +616,32 @@ function popRandom(){
   const pick = holes[Math.floor(Math.random()*holes.length)];
   pick.classList.add('up');
 }
+function activateBeku(){
+  clearInterval(nyamukInterval);
+  const holes = [...document.querySelectorAll('#nyamukGrid .hole')];
+  holes.forEach(h=>h.classList.remove('up'));
+  const shuffled = holes.sort(()=>Math.random()-0.5).slice(0, 6);
+  shuffled.forEach(h=>h.classList.add('up'));
+  setTimeout(()=>{
+    if(nyamukPlaying){ nyamukInterval = setInterval(popRandom, 700); }
+  }, 2000);
+}
+let nyamukTimeLeft = 15;
 function startNyamuk(){
   nyamukScore = 0; 
   document.getElementById('nyamukScore').textContent = 0;
   document.getElementById('nyamukResult').classList.remove('show');
-  let timeLeft = 15;
-  document.getElementById('nyamukTime').textContent = timeLeft;
+  nyamukTimeLeft = 15;
+  document.getElementById('nyamukTime').textContent = nyamukTimeLeft;
   document.getElementById('nyamukStart').disabled = true;
   document.getElementById('nyamukStart').textContent = 'Sedang main...';
   nyamukPlaying = true;
   popRandom();
   nyamukInterval = setInterval(popRandom, 700);
   nyamukTimer = setInterval(()=>{
-    timeLeft--;
-    document.getElementById('nyamukTime').textContent = timeLeft;
-    if(timeLeft<=0){
+    nyamukTimeLeft--;
+    document.getElementById('nyamukTime').textContent = nyamukTimeLeft;
+    if(nyamukTimeLeft<=0){
       clearInterval(nyamukInterval);
       clearInterval(nyamukTimer);
       nyamukPlaying = false;
@@ -488,6 +685,13 @@ function lampuClick(){
       lampuGoStart = performance.now();
     }, delay);
   } else if(lampuState === 'waiting'){
+    if(antiCharges > 0){
+      antiCharges--;
+      updateLampuCharges();
+      lampuResult.classList.add('show');
+      lampuResult.textContent = 'Untung ada Anti Kepancing! Klik tadi dimaafkan, terus tunggu hijau ya.';
+      return;
+    }
     clearTimeout(lampuTimeout);
     lampuState = 'done';
     lampuLight.className = 'light early';
@@ -503,16 +707,32 @@ function lampuClick(){
     lampuLight.textContent = 'MULAI';
     lampuResult.classList.add('show');
     let earned = reaction < 250 ? 5 : reaction < 400 ? 3 : 1;
+    let gandaUsed = false;
+    if(gandaCharges > 0){
+      earned *= 2;
+      gandaCharges--;
+      gandaUsed = true;
+      updateLampuCharges();
+    }
+    const gandaNote = gandaUsed ? ' (Reaksi Ganda aktif! x2)' : '';
     if(bestLampuMs === null || reaction < bestLampuMs){
       bestLampuMs = reaction;
       document.getElementById('bestLampu').textContent = bestLampuMs;
-      lampuResult.textContent = `Rekor baru! Reaksimu ${reaction} ms. +${earned} tiket 🎟️`;
+      lampuResult.textContent = `Rekor baru! Reaksimu ${reaction} ms. +${earned} tiket 🎟️${gandaNote}`;
     } else {
-      lampuResult.textContent = `Reaksimu ${reaction} ms. +${earned} tiket 🎟️`;
+      lampuResult.textContent = `Reaksimu ${reaction} ms. +${earned} tiket 🎟️${gandaNote}`;
     }
     lampuInstruksi.textContent = 'Klik lagi untuk coba sekali lagi.';
     addTickets(earned);
   }
+}
+function updateLampuCharges(){
+  const el = document.getElementById('lampuCharges');
+  if(!el) return;
+  const parts = [];
+  if(antiCharges > 0) parts.push(`🛡️ Anti Kepancing siap: ${antiCharges}`);
+  if(gandaCharges > 0) parts.push(`⚡ Reaksi Ganda siap: ${gandaCharges}`);
+  el.textContent = parts.join('   ');
 }
 
 /* ---------------- COCOKKAN KARTU ---------------- */
@@ -581,6 +801,43 @@ function flipCard(card){
       }, 800);
     }
   }
+}
+renderAllPowerupBars();
+function activateIntip(){
+  kartuLock = true;
+  const cards = document.querySelectorAll('#kartuGrid .card');
+  cards.forEach(c=>{ if(!c.classList.contains('matched')) c.classList.add('flip'); });
+  setTimeout(()=>{
+    cards.forEach(c=>{ if(!c.classList.contains('matched')) c.classList.remove('flip'); });
+    kartuLock = false;
+  }, 1500);
+}
+function activateBantuan(){
+  const unmatched = [...document.querySelectorAll('#kartuGrid .card')].filter(c=>!c.classList.contains('matched'));
+  const grouped = {};
+  unmatched.forEach(c=>{ (grouped[c.dataset.icon] = grouped[c.dataset.icon] || []).push(c); });
+  const pairKey = Object.keys(grouped).find(k=>grouped[k].length === 2);
+  if(!pairKey){
+    flashMsg('kartuResult', 'Nggak ada pasangan tersisa buat dibantu sekarang.');
+    return false;
+  }
+  grouped[pairKey].forEach(c=>{ c.classList.add('flip','matched'); });
+  kartuMatchedCount++;
+  document.getElementById('kartuMatches').textContent = kartuMatchedCount;
+  if(kartuMatchedCount === kartuIcons.length){
+    const banner = document.getElementById('kartuResult');
+    banner.classList.add('show');
+    let earned = Math.max(1, 20 - kartuTurns);
+    if(bestKartuTurns === null || kartuTurns < bestKartuTurns){
+      bestKartuTurns = kartuTurns;
+      document.getElementById('bestKartu').textContent = bestKartuTurns;
+      banner.textContent = `Rekor baru! Selesai dalam ${kartuTurns} giliran. +${earned} tiket 🎟️`;
+    } else {
+      banner.textContent = `Selesai dalam ${kartuTurns} giliran. +${earned} tiket 🎟️`;
+    }
+    addTickets(earned);
+  }
+  return true;
 }
 </script>
 </body>
